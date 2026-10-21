@@ -1,2 +1,2 @@
 # Internship-Logbook-
-A simple, offline-friendly web app for filling in your industrial training logbook. Log daily entries, search past records, and export pages in the official logbook format as PDF or Word. No server, no login, data stays in your browser.
+Vibecoded a simple, offline-friendly web app for filling in your industrial training logbook. Log daily entries, search past records, and export pages in the official logbook format as PDF or Word. No server, no login, data stays in your browser.
