@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Training Logbook</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%92%3C/text%3E%3C/svg%3E">
+<!--
+  Logbook Latihan — versi A (tanpa server, tanpa AI)
+  - Satu fail sahaja. Upload ke GitHub Pages sebagai index.html.
+  - Data disimpan dalam browser (IndexedDB). Export backup selalu.
+  - Tiada library luar / CDN: semua dalam fail ni (selamat untuk network office).
+-->
+<style>
+:root{
+  --paper:#F2F5F3; --surface:#FFFFFF; --ink:#1D2A27; --muted:#5B6B66; --rule:#D3DDD9;
+  --pen:#2E6E62; --on-pen:#FFFFFF; --pen-soft:#E3EFEB; --danger:#B03A2E;
+  --warn-bg:#FBF1DA; --warn-ink:#5C4610; --stage:#D7E0DC;
+  --r-s:8px; --r-l:14px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#101715; --surface:#17211E; --ink:#E4ECE9; --muted:#97A8A2; --rule:#2A3834;
+    --pen:#7FC7B4; --on-pen:#0C1F1A; --pen-soft:#1E302B; --danger:#FF8576;
+    --warn-bg:#352D17; --warn-ink:#EED79A; --stage:#0A0F0D;
+    color-scheme: dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:16px; line-height:1.5;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
+[hidden]{display:none !important}
+
+/* ---------- Shell ---------- */
+.app-header{
+  max-width:760px; margin:0 auto; display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+  padding:calc(16px + env(safe-area-inset-top)) 18px 6px;
+}
+.brand{font-size:1.2rem;font-weight:700;letter-spacing:-.01em;margin:0}
+.store-note{font-size:.8rem;color:var(--muted);text-align:right}
+main{max-width:760px;margin:0 auto;padding:0 16px calc(100px + env(safe-area-inset-bottom))}
+.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,1fr);
+  background:var(--surface);border-top:1px solid var(--rule);padding-bottom:env(safe-area-inset-bottom);
+}
+.tabbar button{
+  appearance:none;border:0;background:none;cursor:pointer;min-height:58px;padding:8px 4px;
+  font-size:.9rem;color:var(--muted);font-weight:500;
+}
+.tabbar button[aria-selected="true"]{color:var(--pen);font-weight:700;box-shadow:inset 0 3px 0 var(--pen)}
+@media (min-width:760px){
+  .tabbar{position:static;max-width:728px;margin:8px auto 20px;border:1px solid var(--rule);border-radius:var(--r-l);overflow:hidden;padding:0}
+  .tabbar button[aria-selected="true"]{box-shadow:inset 0 -3px 0 var(--pen)}
+  main{padding-bottom:56px}
+}
+h2{font-size:1.05rem;margin:28px 0 10px;letter-spacing:-.005em}
+h2:first-child{margin-top:8px}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+
+/* ---------- Controls ---------- */
+.btn{
+  appearance:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  min-height:48px;padding:10px 16px;border-radius:var(--r-s);border:1px solid var(--rule);
+  background:var(--surface);color:var(--ink);font-weight:600;text-decoration:none;
+}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--pen);border-color:var(--pen);color:var(--on-pen)}
+.btn.quiet{background:transparent}
+.btn.danger{color:var(--danger)}
+.btn.block{width:100%}
+.btn[disabled]{opacity:.55;cursor:default}
+.linkbtn{appearance:none;background:none;border:0;padding:0;color:var(--pen);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.btn-row{display:flex;flex-wrap:wrap;gap:10px}
+.field{display:block;font-size:.875rem;font-weight:600;color:var(--muted)}
+.field > input,.field > select,.field > textarea{margin-top:6px}
+input[type=text],input[type=date],input[type=time],input[type=number],input[type=search],select,textarea{
+  display:block;width:100%;min-width:0;min-height:48px;padding:10px 12px;border:1px solid var(--rule);border-radius:var(--r-s);
+  background:var(--surface);color:var(--ink);font-weight:400;font-size:1rem;
+}
+textarea{resize:vertical;line-height:1.45}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.notice{border-radius:var(--r-s);padding:12px 14px;font-size:.92rem;background:var(--warn-bg);color:var(--warn-ink);margin:12px 0}
+.notice.info{background:var(--pen-soft);color:var(--ink)}
+.notice .linkbtn{color:inherit}
+
+/* ---------- Date stamp (the one bold element) ---------- */
+.stamp{
+  display:inline-block;margin:10px 0 20px 4px;padding:10px 18px 12px;color:var(--pen);background:var(--paper);
+  border:2.5px solid currentColor;border-radius:6px;transform:rotate(-1.4deg);
+  box-shadow:inset 0 0 0 3px var(--paper),inset 0 0 0 4.5px currentColor;
+}
+.stamp-day{font-size:2.5rem;font-weight:800;line-height:1.05;letter-spacing:-.025em}
+.stamp-date{font-size:1.05rem;font-weight:600}
+.stamp-week{font-size:.92rem;font-variant-numeric:tabular-nums;opacity:.85}
+.stamp.empty{opacity:.5}
+
+/* ---------- Entry rows ---------- */
+.rows{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.row-card{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-l);padding:14px;display:flex;flex-direction:column;gap:12px}
+.row-card.break{border-style:dashed;background:transparent}
+.row-top{display:flex;align-items:center;justify-content:space-between}
+.row-num{font-weight:700;font-size:.95rem}
+.icon-btn{appearance:none;border:1px solid transparent;background:none;cursor:pointer;min-width:44px;min-height:44px;border-radius:var(--r-s);color:var(--muted);font-size:1.1rem}
+.icon-btn:hover{border-color:var(--rule);color:var(--danger)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{appearance:none;cursor:pointer;min-height:36px;padding:4px 12px;border-radius:999px;border:1px solid transparent;background:var(--pen-soft);font-size:.85rem;color:var(--ink)}
+.chip:hover{border-color:var(--pen);color:var(--pen)}
+.img-zone{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.img-zone img{max-width:120px;max-height:90px;border-radius:6px;border:1px solid var(--rule);display:block}
+.file-btn{position:relative;overflow:hidden}
+.file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.add-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.count-hint{font-size:.88rem;color:var(--muted);margin:10px 2px 0}
+.save-bar{margin-top:20px}
+
+/* ---------- History ---------- */
+.filters{display:grid;gap:10px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.filters .wide{grid-column:1/-1}
+.list{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-l);margin-top:16px;overflow:hidden}
+.item{padding:14px 16px;border-top:1px solid var(--rule)}
+.item:first-child{border-top:0}
+.item-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.item-date{font-weight:700}
+.item-meta{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.item-titles{margin:4px 0 10px;font-size:.92rem;color:var(--muted)}
+.item .btn{min-height:40px;padding:6px 12px;font-size:.9rem}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+
+/* ---------- Report ---------- */
+.seg{display:inline-grid;grid-template-columns:1fr 1fr;border:1px solid var(--rule);border-radius:var(--r-s);overflow:hidden;margin-bottom:12px}
+.seg button{appearance:none;border:0;background:var(--surface);min-height:44px;padding:8px 16px;cursor:pointer;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--pen);color:var(--on-pen)}
+.report-stage{background:var(--stage);border-radius:var(--r-l);padding:14px;margin-top:16px;overflow:hidden}
+.page-frame{overflow:hidden;margin:0 auto 14px}
+.page-frame:last-child{margin-bottom:0}
+.page{
+  width:210mm;min-height:297mm;padding:15mm;background:#fff;color:#000;transform-origin:top left;
+  font-family:"Times New Roman",Times,serif;font-size:11pt;line-height:1.25;box-shadow:0 2px 12px rgba(0,0,0,.2);
+  display:flex;flex-direction:column;
+}
+.page .sans{font-family:Arial,Helvetica,sans-serif}
+.lb-head{font-family:Arial,Helvetica,sans-serif;font-size:11pt;padding-left:2mm;white-space:nowrap}
+.lb-head b{font-weight:bold}
+.lb-v{display:inline-block;border-bottom:1px solid #000;padding:0 1.5mm;margin-right:3mm;line-height:1.15;vertical-align:baseline}
+.lb-note{font-family:Arial,Helvetica,sans-serif;font-style:italic;font-size:11pt;margin:0 0 4mm}
+.lb-table{flex:1;position:relative;border:1px solid #000;display:flex;flex-direction:column;margin-right:.6mm}
+.lb-table .vl{position:absolute;top:0;bottom:0;border-left:1px solid #000}
+.lb-th,.lb-row{display:grid;grid-template-columns:13% 43.4% 1fr}
+.lb-th{border-bottom:1px solid #000;font-family:Arial,Helvetica,sans-serif;font-weight:bold;text-align:center}
+.lb-th > div{padding:1.3mm 1mm}
+.lb-body{flex:1}
+.lb-row{margin-bottom:8mm;break-inside:avoid}
+.lb-row .t{padding:0 1mm 0 .5mm}
+.lb-row .e{padding:0 2mm;text-align:center}
+.lb-row .d{padding:0 1.5mm 0 .5mm;white-space:pre-wrap;overflow-wrap:anywhere}
+.lb-note2{font-family:Arial,Helvetica,sans-serif;font-style:italic;font-size:11pt;margin:1mm 0 0}
+.lb-sign{margin-top:6mm;font-family:Arial,Helvetica,sans-serif;font-size:11pt;break-inside:avoid}
+.lb-sign .sigbox{position:relative;width:72mm;height:16mm}
+.lb-sign .sigbox img{position:absolute;left:16mm;bottom:-3mm;max-width:46mm;max-height:22mm}
+.lb-sign .line{width:72mm;border-top:1px solid #000}
+.lb-sign .lab{font-weight:bold;padding-left:2mm}
+.att-head{font-family:Arial,Helvetica,sans-serif;font-weight:bold;font-size:11pt;margin:0 0 6mm}
+.page .att{margin:0 0 8mm;break-inside:avoid}
+.page .att img{display:block;max-width:100%;max-height:110mm}
+.page .att figcaption{font-style:italic;margin-top:2mm}
+
+/* ---------- Signature ---------- */
+.sig-wrap{background:#fff;border:1px dashed var(--muted);border-radius:var(--r-s);max-width:480px;touch-action:none}
+.sig-wrap canvas{display:block;width:100%;height:180px;cursor:crosshair}
+.sig-saved{background:#fff;border:1px solid var(--rule);border-radius:var(--r-s);padding:10px;display:inline-block;margin-bottom:10px}
+.sig-saved img{display:block;max-height:70px;max-width:260px}
+.days-pick{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.days-pick label{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:4px 12px;border:1px solid var(--rule);border-radius:999px;background:var(--surface);cursor:pointer;font-size:.92rem;color:var(--ink);font-weight:500}
+.days-pick input{width:18px;height:18px;accent-color:var(--pen)}
+.section{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-l);padding:16px;display:flex;flex-direction:column;gap:12px}
+
+/* ---------- Toast ---------- */
+.toast{
+  position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:40;
+  background:var(--ink);color:var(--paper);padding:12px 16px;border-radius:var(--r-s);font-size:.95rem;
+  display:flex;gap:14px;align-items:center;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.25)
+}
+.toast .linkbtn{color:inherit;white-space:nowrap}
+@media (min-width:760px){.toast{bottom:28px}}
+@media (prefers-reduced-motion:no-preference){
+  .toast{animation:pop .18s ease-out}
+  @keyframes pop{from{opacity:0;transform:translate(-50%,6px)}to{opacity:1;transform:translate(-50%,0)}}
+}
+
+/* ---------- Print: dokumen sahaja, A4 ---------- */
+@media print{
+  @page{size:A4;margin:15mm}
+  html,body{background:#fff !important}
+  .app-header,.tabbar,.toast,.no-print{display:none !important}
+  main{padding:0;max-width:none}
+  .view{display:none !important}
+  #view-report{display:block !important}
+  .report-stage{background:none;padding:0;margin:0;border-radius:0}
+  .page-frame{width:auto !important;height:auto !important;overflow:visible;margin:0;break-after:page}
+  .page-frame:last-child{break-after:auto}
+  .page{transform:none !important;width:auto;min-height:266mm;padding:0;box-shadow:none}
+  .page.att-page{min-height:0}
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <h1 class="brand">Training Logbook</h1>
+  <div class="store-note" id="storeNote">Saved in this browser</div>
+</header>
+
+<nav class="tabbar" role="tablist" aria-label="Main menu">
+  <button role="tab" data-tab="entry" aria-selected="true">Entry</button>
+  <button role="tab" data-tab="history" aria-selected="false">History</button>
+  <button role="tab" data-tab="report" aria-selected="false">Report</button>
+  <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
+</nav>
+
+<main>
+  <div id="memoryWarn" class="notice no-print" hidden>
+    This browser can't save data. Everything here is temporary and will be lost when you close the tab. Export backup sebelum tutup.
+  </div>
+
+  <!-- ================= ISI ================= -->
+  <section class="view" id="view-entry" role="tabpanel">
+    <div id="backupNag" class="notice" hidden>
+      It's been over a week since your last backup. <button class="linkbtn" data-act="export">Export now</button>
+    </div>
+
+    <div id="editBanner" class="notice info" hidden>
+      Editing record <strong id="editLabel"></strong>.
+      <button class="linkbtn" id="cancelEdit">Cancel edit</button>
+    </div>
+
+    <div class="stamp" id="stamp" aria-live="polite">
+      <div class="stamp-day" id="stampDay">—</div>
+      <div class="stamp-date" id="stampDate">Pick a date</div>
+      <div class="stamp-week" id="stampWeek"></div>
+    </div>
+
+    <div class="grid2">
+      <label class="field">Date
+        <input type="date" id="fDate">
+      </label>
+      <label class="field">Training Week
+        <input type="number" id="fWeek" min="1" max="99" inputmode="numeric">
+      </label>
+    </div>
+    <p class="count-hint" id="weekHint"></p>
+
+    <div id="existNotice" class="notice info" hidden></div>
+
+    <div class="rows" id="rows"></div>
+
+    <div class="add-row">
+      <button class="btn" id="addEntry">+ Add entry</button>
+      <button class="btn quiet" id="addBreak">+ Lunch Break</button>
+    </div>
+    <p class="count-hint" id="countHint" hidden>Usually a day has at least 2 entries. Tambah lagi kalau ada.</p>
+
+    <div class="save-bar">
+      <button class="btn primary block" id="saveBtn">Save record</button>
+    </div>
+  </section>
+
+  <!-- ================= SEJARAH ================= -->
+  <section class="view" id="view-history" role="tabpanel" hidden>
+    <h2>History</h2>
+    <div class="filters">
+      <label class="field wide">Search
+        <input type="search" id="hSearch" placeholder="Keyword in entry or description">
+      </label>
+      <label class="field">Training Week
+        <select id="hWeek"><option value="">All</option></select>
+      </label>
+      <label class="field">Sort
+        <select id="hSort">
+          <option value="desc">Newest first</option>
+          <option value="asc">Oldest first</option>
+        </select>
+      </label>
+      <label class="field">From
+        <input type="date" id="hFrom">
+      </label>
+      <label class="field">To
+        <input type="date" id="hTo">
+      </label>
+    </div>
+    <div class="list" id="hList"></div>
+  </section>
+
+  <!-- ================= REPORT ================= -->
+  <section class="view" id="view-report" role="tabpanel" hidden>
+    <div class="report-controls no-print">
+      <h2>Report</h2>
+      <div class="seg" role="group" aria-label="Report scope">
+        <button id="segDay" aria-pressed="true">Single day</button>
+        <button id="segWeek" aria-pressed="false">Whole week</button>
+      </div>
+      <label class="field" id="rDayWrap">Day
+        <select id="rDay"></select>
+      </label>
+      <label class="field" id="rWeekWrap" hidden>Training Week
+        <select id="rWeek"></select>
+      </label>
+      <label class="field" style="margin-top:12px">Signature date
+        <input type="date" id="rSignDate">
+      </label>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn" id="copyBtn">Copy text</button>
+        <button class="btn" id="printBtn">Print / Save as PDF</button>
+        <button class="btn" id="docxBtn">Download Word (.docx)</button>
+      </div>
+    </div>
+    <div class="report-stage" id="reportStage"></div>
+  </section>
+
+  <!-- ================= TETAPAN ================= -->
+  <section class="view" id="view-settings" role="tabpanel" hidden>
+    <h2>Training</h2>
+    <div class="section">
+      <label class="field">Training start date
+        <input type="date" id="sStart">
+      </label>
+      <div>
+        <div class="field">Working days</div>
+        <div class="days-pick" id="sDays"></div>
+        <p class="small muted" style="margin:8px 0 0">Used to suggest the next date after you save. Kau tetap boleh ubah tarikh.</p>
+      </div>
+      <div>
+        <button class="btn" id="recalcWeeks">Recalculate Training Week for all records</button>
+      </div>
+    </div>
+
+    <h2>Signature</h2>
+    <div class="section">
+      <div id="sigSavedWrap" hidden>
+        <div class="small muted">Current signature</div>
+        <div class="sig-saved"><img id="sigSaved" alt="Saved signature"></div>
+      </div>
+      <div class="small muted">Draw in the box below (finger or mouse)</div>
+      <div class="sig-wrap"><canvas id="sigCanvas" aria-label="Signature pad"></canvas></div>
+      <div class="btn-row">
+        <button class="btn" id="sigClear">Clear</button>
+        <button class="btn primary" id="sigSave">Save signature</button>
+      </div>
+    </div>
+
+    <h2>Backup</h2>
+    <div class="section">
+      <div class="notice" style="margin:0"><strong>Data cuma tersimpan dalam browser ni. Export backup selalu.</strong></div>
+      <p class="small muted" style="margin:0" id="lastBackup"></p>
+      <div class="btn-row">
+        <button class="btn primary" data-act="export">Export backup (JSON)</button>
+        <span class="btn file-btn">Import backup<input type="file" id="importFile" accept="application/json,.json"></span>
+      </div>
+      <p class="small muted" style="margin:0">Import merges with your existing data. Records with the same date will be replaced by the version in the file.</p>
+    </div>
+
+    <h2>Storage</h2>
+    <div class="section">
+      <p class="small" style="margin:0" id="storeInfo"></p>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   UTIL
+   ===================================================================== */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const DAYS_EN   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DAYS_SHORT= ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const CHIPS = ['plan','design','present','briefing','meeting','research','review','monitoring','drafting'];
+const DAY_MS = 86400000;
+
+const pad2 = n => String(n).padStart(2, '0');
+// Tarikh disimpan sebagai 'YYYY-MM-DD' (tarikh tempatan, bukan timestamp) supaya tak lari sebab timezone.
+const toISO = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const parseISO = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (iso, n) => { const d = parseISO(iso); d.setDate(d.getDate() + n); return toISO(d); };
+const fmtLong = iso => { const d = parseISO(iso); return `${d.getDate()} ${MONTHS_EN[d.getMonth()]} ${d.getFullYear()}`; };
+const dayName = iso => DAYS_EN[parseISO(iso).getDay()];
+const fmtTime = t => { if (!t) return ''; const [h, m] = t.split(':'); return `${Number(h)}:${m}`; };
+const timeRange = (a, b) => (a && b) ? `${fmtTime(a)} – ${fmtTime(b)}` : fmtTime(a || b);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const todayISO = () => toISO(new Date());
+
+// Training Week: minggu 1 = minggu (Isnin–Ahad) yang mengandungi tarikh mula latihan.
+// Andaian: logbook kira minggu ikut minggu kalendar. Boleh override manual dalam form.
+function calcWeek(iso, startISO) {
+  if (!iso || !startISO) return null;
+  const monday = s => { const d = parseISO(s); const off = (d.getDay() + 6) % 7; d.setDate(d.getDate() - off); return d; };
+  const diff = Math.round((monday(iso) - monday(startISO)) / DAY_MS);
+  if (diff < 0) return null;
+  return Math.floor(diff / 7) + 1;
+}
+
+// Cadang hari bekerja seterusnya selepas `iso`, langkau hari yang dah ada rekod.
+function nextWorkingDay(iso, workingDays, taken) {
+  let d = iso;
+  for (let i = 0; i < 60; i++) {
+    d = addDays(d, 1);
+    if (workingDays.includes(parseISO(d).getDay()) && !taken.has(d)) return d;
+  }
+  return addDays(iso, 1);
+}
+
+/* =====================================================================
+   STORAGE LAYER
+   Semua baca/tulis data lalu objek `storage` ni sahaja.
+   Nak tukar ke cloud (cth Supabase) nanti: ganti isi fungsi di sini,
+   kekalkan nama & bentuk data. UI tak perlu ubah.
+   Guna IndexedDB (bukan localStorage) sebab gambar cepat penuhkan had 5MB localStorage.
+   Kalau IndexedDB gagal, guna memori sahaja + beri amaran.
+   ===================================================================== */
+const storage = (() => {
+  const DB_NAME = 'logbook-latihan', DB_VER = 1;
+  let db = null, mode = 'idb';
+  const mem = { days: new Map(), settings: null };
+
+  function open() {
+    return new Promise(resolve => {
+      try {
+        if (!('indexedDB' in window)) throw new Error('no idb');
+        const req = indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = () => {
+          const d = req.result;
+          if (!d.objectStoreNames.contains('days')) d.createObjectStore('days', { keyPath: 'date' });
+          if (!d.objectStoreNames.contains('settings')) d.createObjectStore('settings', { keyPath: 'key' });
+        };
+        req.onsuccess = () => { db = req.result; resolve(); };
+        req.onerror = () => { mode = 'memory'; resolve(); };
+        req.onblocked = () => { mode = 'memory'; resolve(); };
+      } catch (e) { mode = 'memory'; resolve(); }
+    });
+  }
+  function run(store, type, fn) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, type);
+      const s = tx.objectStore(store);
+      let result;
+      const r = fn(s);
+      if (r) r.onsuccess = () => { result = r.result; };
+      tx.oncomplete = () => resolve(result);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('Transaksi dibatalkan'));
+    });
+  }
+  const DEFAULT_SETTINGS = { trainingStartDate: '', workingDays: [1, 2, 3, 4, 5], signature: null, lastBackupAt: null };
+
+  return {
+    get mode() { return mode; },
+    init: open,
+    async getAll() {
+      const list = mode === 'idb' ? await run('days', 'readonly', s => s.getAll()) : [...mem.days.values()];
+      return (list || []).sort((a, b) => a.date.localeCompare(b.date));
+    },
+    async save(day) {
+      day = structuredClone(day);
+      if (mode === 'idb') await run('days', 'readwrite', s => s.put(day)); else mem.days.set(day.date, day);
+      return day;
+    },
+    async remove(date) {
+      if (mode === 'idb') await run('days', 'readwrite', s => s.delete(date)); else mem.days.delete(date);
+    },
+    async getSettings() {
+      const s = mode === 'idb' ? await run('settings', 'readonly', st => st.get('main')) : mem.settings;
+      return { ...DEFAULT_SETTINGS, ...(s || {}) };
+    },
+    async saveSettings(settings) {
+      const v = { ...structuredClone(settings), key: 'main' };
+      if (mode === 'idb') await run('settings', 'readwrite', s => s.put(v)); else mem.settings = v;
+    },
+    async exportAll() {
+      const settings = await this.getSettings();
+      delete settings.key;
+      return { app: 'logbook-latihan', version: 1, exportedAt: new Date().toISOString(), settings, days: await this.getAll() };
+    },
+    async importAll(data) {
+      if (!data || data.app !== 'logbook-latihan' || !Array.isArray(data.days)) throw new Error("This file isn't a Training Logbook backup.");
+      let n = 0;
+      for (const d of data.days) {
+        if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d.date) || !Array.isArray(d.entries)) continue;
+        await this.save(d); n++;
+      }
+      if (data.settings) {
+        const cur = await this.getSettings();
+        const inc = data.settings;
+        await this.saveSettings({
+          ...cur,
+          trainingStartDate: inc.trainingStartDate || cur.trainingStartDate,
+          workingDays: Array.isArray(inc.workingDays) && inc.workingDays.length ? inc.workingDays : cur.workingDays,
+          signature: inc.signature || cur.signature,
+        });
+      }
+      return n;
+    },
+  };
+})();
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+const state = {
+  settings: null,
+  days: [],
+  editingDate: null,            // tarikh asal rekod yang sedang diedit
+  form: null,                   // { date, week, weekManual, entries: [] }
+  report: { mode: 'day', date: '', week: '', signDate: '' },
+};
+const blankEntry = () => ({ id: uid(), timeFrom: '', timeTo: '', title: '', description: '', image: null, isBreak: false });
+const breakEntry = () => ({ id: uid(), timeFrom: '13:00', timeTo: '14:00', title: 'Lunch Break', description: '', image: null, isBreak: true });
+const takenDates = () => new Set(state.days.map(d => d.date));
+const autoWeek = iso => calcWeek(iso, state.settings.trainingStartDate);
+
+/* =====================================================================
+   DRAFT (supaya taipan tak hilang kalau tab tertutup)
+   ===================================================================== */
+const DRAFT_KEY = 'logbook-latihan-draft-v1';
+function saveDraft() {
+  const payload = { form: state.form, editingDate: state.editingDate };
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(payload)); }
+  catch (e) {
+    try { // terlalu besar (gambar) — simpan tanpa gambar
+      const lite = structuredClone(payload);
+      lite.form.entries.forEach(en => { en.image = null; });
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(lite));
+    } catch (e2) { /* abaikan */ }
+  }
+}
+function loadDraft() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { return null; } }
+function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+const formIsBlank = f => f.entries.every(e => e.isBreak || (!e.title.trim() && !e.description.trim() && !e.image && !e.timeFrom && !e.timeTo));
+
+/* =====================================================================
+   TOAST
+   ===================================================================== */
+let toastTimer;
+function toast(msg, action) {
+  const t = $('#toast');
+  t.innerHTML = `<span>${esc(msg)}</span>` + (action ? `<button class="linkbtn">${esc(action.label)}</button>` : '');
+  if (action) $('button', t).onclick = () => { t.hidden = true; action.fn(); };
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, action ? 6000 : 3000);
+}
+
+/* =====================================================================
+   TABS
+   ===================================================================== */
+function showTab(name) {
+  $('#toast').hidden = true;
+  $$('.tabbar button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  $$('.view').forEach(v => { v.hidden = v.id !== 'view-' + name; });
+  if (name === 'history') renderHistory();
+  if (name === 'report') renderReportControls();
+  if (name === 'settings') renderSettings();
+  window.scrollTo(0, 0);
+}
+$$('.tabbar button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+/* =====================================================================
+   ISI (FORM)
+   ===================================================================== */
+function newForm(date) {
+  return { date, week: autoWeek(date) ?? '', weekManual: false, entries: [blankEntry(), blankEntry()] };
+}
+function suggestStartDate() {
+  const taken = takenDates();
+  const t = todayISO();
+  if (!taken.has(t)) return t;
+  return nextWorkingDay(t, state.settings.workingDays, taken);
+}
+
+function renderStamp() {
+  const f = state.form;
+  const stamp = $('#stamp');
+  if (!f.date) {
+    stamp.classList.add('empty');
+    $('#stampDay').textContent = '—'; $('#stampDate').textContent = 'Pick a date'; $('#stampWeek').textContent = '';
+    return;
+  }
+  stamp.classList.remove('empty');
+  $('#stampDay').textContent = dayName(f.date);
+  $('#stampDate').textContent = fmtLong(f.date);
+  $('#stampWeek').textContent = f.week !== '' && f.week != null ? `Training Week ${f.week}` : 'Training Week not set';
+}
+
+function renderFormMeta() {
+  const f = state.form;
+  $('#fDate').value = f.date || '';
+  $('#fWeek').value = f.week ?? '';
+  const hint = $('#weekHint');
+  if (!state.settings.trainingStartDate) {
+    hint.innerHTML = 'Set your training start date in <button class="linkbtn" data-goto="settings">Settings</button> to auto-calculate the week.';
+  } else if (f.weekManual) {
+    hint.innerHTML = 'Week edited manually. <button class="linkbtn" id="weekAuto">Use auto week</button>';
+  } else hint.textContent = '';
+
+  // Edit banner
+  $('#editBanner').hidden = !state.editingDate;
+  if (state.editingDate) $('#editLabel').textContent = fmtLong(state.editingDate);
+  $('#saveBtn').textContent = state.editingDate ? 'Save changes' : 'Save record';
+
+  // Notis kalau tarikh dah ada rekod
+  const ex = state.days.find(d => d.date === f.date);
+  const box = $('#existNotice');
+  if (ex && f.date !== state.editingDate) {
+    box.hidden = false;
+    box.innerHTML = `${esc(fmtLong(f.date))} already has a record (${ex.entries.length} ${ex.entries.length === 1 ? 'entry' : 'entries'}). New entries will be added to it when you save. <button class="linkbtn" data-open="${ex.date}">Open that record to edit</button>`;
+  } else box.hidden = true;
+
+  renderStamp();
+  updateCountHint();
+}
+
+function rowHTML(e, i, num) {
+  if (e.isBreak) {
+    return `<div class="row-card break" data-idx="${i}">
+      <div class="row-top"><span class="row-num">Break</span>
+        <button class="icon-btn" data-act="del-row" aria-label="Remove break">✕</button></div>
+      <div class="grid2">
+        <label class="field">From<input type="time" data-f="timeFrom" value="${esc(e.timeFrom)}"></label>
+        <label class="field">To<input type="time" data-f="timeTo" value="${esc(e.timeTo)}"></label>
+      </div>
+      <label class="field">Label<input type="text" data-f="title" value="${esc(e.title)}" maxlength="40"></label>
+    </div>`;
+  }
+  const img = e.image
+    ? `<img src="${e.image.data}" alt="Attachment for entry ${num}"><button class="btn quiet" data-act="del-img">Remove photo</button>`
+    : `<span class="btn file-btn">Add photo (optional)<input type="file" accept="image/*" data-f="image"></span>`;
+  return `<div class="row-card" data-idx="${i}">
+    <div class="row-top"><span class="row-num">Entry ${num}</span>
+      <button class="icon-btn" data-act="del-row" aria-label="Remove entry ${num}">✕</button></div>
+    <div class="grid2">
+      <label class="field">From<input type="time" data-f="timeFrom" value="${esc(e.timeFrom)}"></label>
+      <label class="field">To<input type="time" data-f="timeTo" value="${esc(e.timeTo)}"></label>
+    </div>
+    <label class="field">Entry<input type="text" data-f="title" value="${esc(e.title)}" maxlength="60" placeholder="cth Draft review"></label>
+    <div class="chips" aria-label="Task suggestions">${CHIPS.map(c => `<button type="button" class="chip" data-act="chip" data-v="${c}">${c}</button>`).join('')}</div>
+    <label class="field">Description / Remarks
+      <textarea data-f="description" rows="3" placeholder="cth Conducted daily floor monitoring at the manufacturing section.">${esc(e.description)}</textarea>
+    </label>
+    <!-- AI paraphrase akan ditambah di sini kelak -->
+    <div class="img-zone">${img}</div>
+  </div>`;
+}
+function renderRows() {
+  let n = 0;
+  $('#rows').innerHTML = state.form.entries.map((e, i) => rowHTML(e, i, e.isBreak ? 0 : ++n)).join('');
+  updateCountHint();
+}
+function updateCountHint() {
+  const filled = state.form.entries.filter(e => !e.isBreak && (e.title.trim() || e.description.trim())).length;
+  $('#countHint').hidden = !(filled > 0 && filled < 2);
+}
+
+// Kecilkan gambar dalam browser: lebar max 1000px, JPEG
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read the file"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("This file isn't a readable image"));
+      img.onload = () => {
+        const maxW = 1000;
+        const s = Math.min(1, maxW / img.naturalWidth);
+        const w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+        resolve({ data: c.toDataURL('image/jpeg', 0.75), w, h });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Event: input dalam baris (tak render semula supaya fokus tak hilang)
+$('#rows').addEventListener('input', e => {
+  const card = e.target.closest('.row-card'); const f = e.target.dataset.f;
+  if (!card || !f || f === 'image') return;
+  state.form.entries[+card.dataset.idx][f] = e.target.value;
+  updateCountHint(); saveDraft();
+});
+$('#rows').addEventListener('change', async e => {
+  if (e.target.dataset.f !== 'image') return;
+  const card = e.target.closest('.row-card'); const file = e.target.files[0];
+  if (!file) return;
+  try {
+    state.form.entries[+card.dataset.idx].image = await compressImage(file);
+    renderRows(); saveDraft();
+  } catch (err) { toast(err.message); }
+});
+$('#rows').addEventListener('click', e => {
+  const btn = e.target.closest('[data-act]'); if (!btn) return;
+  const card = btn.closest('.row-card'); const i = +card.dataset.idx;
+  const entry = state.form.entries[i];
+  if (btn.dataset.act === 'del-row') {
+    const hasContent = entry.title.trim() || entry.description.trim() || entry.image;
+    if (hasContent && !entry.isBreak && !confirm('Remove this entry?')) return;
+    state.form.entries.splice(i, 1);
+    if (!state.form.entries.some(x => !x.isBreak)) state.form.entries.push(blankEntry());
+    renderRows(); saveDraft();
+  } else if (btn.dataset.act === 'chip') {
+    const v = btn.dataset.v; const t = entry.title.trim();
+    entry.title = t ? `${t} ${v}` : v.charAt(0).toUpperCase() + v.slice(1);
+    const input = $('[data-f="title"]', card); input.value = entry.title; input.focus();
+    updateCountHint(); saveDraft();
+  } else if (btn.dataset.act === 'del-img') {
+    entry.image = null; renderRows(); saveDraft();
+  }
+});
+
+$('#addEntry').addEventListener('click', () => {
+  state.form.entries.push(blankEntry()); renderRows(); saveDraft();
+  const cards = $$('.row-card'); $('[data-f="title"]', cards[cards.length - 1])?.focus();
+});
+$('#addBreak').addEventListener('click', () => { state.form.entries.push(breakEntry()); renderRows(); saveDraft(); });
+
+$('#fDate').addEventListener('change', e => {
+  const f = state.form; f.date = e.target.value;
+  if (!f.weekManual) f.week = autoWeek(f.date) ?? '';
+  renderFormMeta(); saveDraft();
+});
+$('#fWeek').addEventListener('input', e => {
+  const f = state.form; f.week = e.target.value === '' ? '' : Number(e.target.value);
+  f.weekManual = f.week !== (autoWeek(f.date) ?? '');
+  renderStamp(); saveDraft();
+  const hint = $('#weekHint');
+  if (f.weekManual && state.settings.trainingStartDate) hint.innerHTML = 'Week edited manually. <button class="linkbtn" id="weekAuto">Use auto week</button>';
+});
+$('#weekHint').addEventListener('click', e => {
+  if (e.target.id === 'weekAuto') {
+    state.form.week = autoWeek(state.form.date) ?? ''; state.form.weekManual = false; renderFormMeta(); saveDraft();
+  }
+});
+document.addEventListener('click', e => {
+  const g = e.target.closest('[data-goto]'); if (g) showTab(g.dataset.goto);
+  const o = e.target.closest('[data-open]'); if (o) startEdit(o.dataset.open);
+  const x = e.target.closest('[data-act="export"]'); if (x) exportBackup();
+});
+$('#cancelEdit').addEventListener('click', () => {
+  state.editingDate = null; state.form = newForm(suggestStartDate()); clearDraft(); renderFormAll();
+});
+
+function renderFormAll() { renderFormMeta(); renderRows(); renderNags(); }
+
+function startEdit(date) {
+  const d = state.days.find(x => x.date === date); if (!d) return;
+  if (!formIsBlank(state.form) && state.editingDate !== date && !confirm('You have unsaved changes in the form. Discard them and open this record?')) return;
+  state.editingDate = date;
+  const auto = autoWeek(date);
+  state.form = {
+    date, week: d.trainingWeek ?? '', weekManual: d.trainingWeek != null && d.trainingWeek !== auto,
+    entries: structuredClone(d.entries).map(e => ({ ...blankEntry(), ...e })),
+  };
+  if (!state.form.entries.length) state.form.entries.push(blankEntry());
+  saveDraft(); showTab('entry'); renderFormAll();
+}
+
+let persistAsked = false;
+async function askPersist() {
+  if (persistAsked) return; persistAsked = true;
+  try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
+}
+
+$('#saveBtn').addEventListener('click', async () => {
+  const btn = $('#saveBtn'); const f = state.form;
+  if (!f.date) { toast('Pick a date first.'); $('#fDate').focus(); return; }
+  const entries = f.entries
+    .map(e => ({ ...e, title: e.title.trim(), description: e.description.trim() }))
+    .filter(e => e.isBreak ? !!e.title : (e.title || e.description || e.image))
+    // Susun ikut masa mula (stabil); baris tanpa masa kekal susunan asal di hujung
+    .map((e, i) => ({ e, i })).sort((a, b) => (a.e.timeFrom || '99:99').localeCompare(b.e.timeFrom || '99:99') || a.i - b.i).map(x => x.e);
+  if (!entries.some(e => !e.isBreak)) { toast('Fill in at least one entry.'); return; }
+  const week = f.week === '' || f.week == null ? null : Number(f.week);
+  const now = new Date().toISOString();
+  const existing = state.days.find(d => d.date === f.date);
+  let record;
+
+  if (state.editingDate) {
+    if (f.date !== state.editingDate && existing) {
+      alert(`${fmtLong(f.date)} already has a record. Pick another date, or open that record from History.`); return;
+    }
+    const orig = state.days.find(d => d.date === state.editingDate) || {};
+    record = { ...orig, date: f.date, trainingWeek: week, entries, updatedAt: now, createdAt: orig.createdAt || now };
+  } else if (existing) {
+    if (!confirm(`${fmtLong(f.date)} already has ${existing.entries.length} ${existing.entries.length === 1 ? 'entry' : 'entries'}. Add these new entries to it?`)) return;
+    record = { ...existing, trainingWeek: week ?? existing.trainingWeek, entries: [...existing.entries, ...entries], updatedAt: now };
+  } else {
+    record = { date: f.date, trainingWeek: week, entries, createdAt: now, updatedAt: now };
+  }
+
+  btn.disabled = true;
+  try {
+    await storage.save(record);
+    if (state.editingDate && state.editingDate !== f.date) await storage.remove(state.editingDate);
+    state.days = await storage.getAll();
+    askPersist();
+    const savedDate = record.date;
+    const wasEdit = !!state.editingDate;
+    state.editingDate = null;
+    clearDraft();
+    // Cadang hari bekerja seterusnya (boleh ubah)
+    state.form = newForm(nextWorkingDay(savedDate, state.settings.workingDays, takenDates()));
+    renderFormAll();
+    window.scrollTo(0, 0);
+    toast(wasEdit ? 'Changes saved' : 'Record saved', { label: 'View report', fn: () => openReportDay(savedDate) });
+  } catch (err) {
+    toast("Couldn't save: " + (err && err.message ? err.message : 'storage error'));
+  } finally { btn.disabled = false; }
+});
+
+function renderNags() {
+  const s = state.settings;
+  const stale = !s.lastBackupAt || (Date.now() - new Date(s.lastBackupAt).getTime() > 7 * DAY_MS);
+  $('#backupNag').hidden = !(state.days.length > 0 && stale);
+  $('#memoryWarn').hidden = storage.mode !== 'memory';
+}
+
+/* =====================================================================
+   SEJARAH
+   ===================================================================== */
+function weekOptions(selectEl, keepFirst) {
+  const weeks = [...new Set(state.days.map(d => d.trainingWeek).filter(w => w != null))].sort((a, b) => a - b);
+  const cur = selectEl.value;
+  selectEl.innerHTML = (keepFirst ? '<option value="">All</option>' : '') + weeks.map(w => `<option value="${w}">Week ${w}</option>`).join('');
+  if ([...selectEl.options].some(o => o.value === cur)) selectEl.value = cur;
+  return weeks;
+}
+function renderHistory() {
+  weekOptions($('#hWeek'), true);
+  const q = $('#hSearch').value.trim().toLowerCase();
+  const wk = $('#hWeek').value; const from = $('#hFrom').value; const to = $('#hTo').value;
+  let list = state.days.filter(d => {
+    if (wk && String(d.trainingWeek) !== wk) return false;
+    if (from && d.date < from) return false;
+    if (to && d.date > to) return false;
+    if (q && !d.entries.some(e => (e.title + ' ' + e.description).toLowerCase().includes(q))) return false;
+    return true;
+  });
+  if ($('#hSort').value === 'desc') list = list.slice().reverse();
+  const box = $('#hList');
+  if (!state.days.length) { box.innerHTML = `<div class="empty">No records yet. <button class="linkbtn" data-goto="entry">Add your first entry</button></div>`; return; }
+  if (!list.length) { box.innerHTML = `<div class="empty">No records match your search.</div>`; return; }
+  box.innerHTML = list.map(d => {
+    const work = d.entries.filter(e => !e.isBreak);
+    const titles = work.map(e => e.title || '(untitled)').join(', ');
+    return `<div class="item">
+      <div class="item-head"><span class="item-date">${esc(dayName(d.date))}, ${esc(fmtLong(d.date))}</span>
+      <span class="item-meta">${d.trainingWeek != null ? 'Week ' + d.trainingWeek + ', ' : ''}${work.length} ${work.length === 1 ? 'entry' : 'entries'}</span></div>
+      <div class="item-titles">${esc(titles)}</div>
+      <div class="btn-row">
+        <button class="btn" data-open="${d.date}">Edit</button>
+        <button class="btn" data-report="${d.date}">Report</button>
+        <button class="btn quiet danger" data-del="${d.date}">Delete</button>
+      </div></div>`;
+  }).join('');
+}
+['input', 'change'].forEach(ev => ['#hSearch', '#hWeek', '#hSort', '#hFrom', '#hTo'].forEach(s => $(s).addEventListener(ev, renderHistory)));
+$('#hList').addEventListener('click', async e => {
+  const r = e.target.closest('[data-report]'); if (r) { openReportDay(r.dataset.report); return; }
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    const date = del.dataset.del;
+    if (!confirm(`Delete the record for ${fmtLong(date)}? This can't be undone.`)) return;
+    await storage.remove(date);
+    state.days = await storage.getAll();
+    if (state.editingDate === date) { state.editingDate = null; state.form = newForm(suggestStartDate()); clearDraft(); renderFormAll(); }
+    renderHistory(); toast('Record deleted');
+  }
+});
+
+/* =====================================================================
+   REPORT
+   ===================================================================== */
+const NOTE_TOP = '(Please specify training information by descriptive statement, tables, sketches, figures etc.)';
+const NOTE_BOTTOM = 'Note: Please include attachment whenever necessary';
+
+// Layout ikut format logbook sebenar: header bergaris, jadual 3 kolum tanpa garis melintang
+// yang memenuhi muka surat, nota, tandatangan + tarikh tandatangan.
+function pageHTML(d) {
+  const sig = state.settings.signature;
+  const rows = d.entries.map(e => `<div class="lb-row">
+      <div class="t">${esc(timeRange(e.timeFrom, e.timeTo))}</div>
+      <div class="e">${esc(e.title)}</div>
+      <div class="d">${e.isBreak ? '' : esc(e.description)}</div></div>`).join('');
+  return `<article class="page">
+    <div class="lb-head"><b>Date</b>:&nbsp;<span class="lb-v" style="min-width:44mm">${esc(fmtLong(d.date))}</span>
+      <b>Day</b>:&nbsp;<span class="lb-v" style="min-width:44mm">${esc(dayName(d.date))}</span>
+      <b>Training Week</b>:<span class="lb-v" style="min-width:7mm">${d.trainingWeek ?? ''}</span></div>
+    <p class="lb-note">${esc(NOTE_TOP)}</p>
+    <div class="lb-table">
+      <span class="vl" style="left:13%"></span><span class="vl" style="left:56.4%"></span>
+      <div class="lb-th"><div>Time</div><div>Entry</div><div>Description / Remarks</div></div>
+      <div class="lb-body">${rows}</div>
+    </div>
+    <p class="lb-note2">${esc(NOTE_BOTTOM)}</p>
+    <div class="lb-sign">
+      <div class="sigbox">${sig ? `<img src="${sig.data}" alt="Student signature">` : ''}</div>
+      <div class="line"></div>
+      <div class="lab">Student Signature</div>
+      <div class="lab">Date: ${esc(fmtLong(signDateISO()))}</div>
+    </div></article>`;
+}
+// Lampiran gambar diletak di muka surat berasingan selepas muka surat hari tu
+function attachmentsHTML(d) {
+  const imgs = d.entries.filter(e => e.image && !e.isBreak);
+  if (!imgs.length) return '';
+  return `<article class="page att-page">
+    <p class="att-head">Attachments: ${esc(fmtLong(d.date))}</p>
+    ${imgs.map((e, i) => `<figure class="att" style="margin-left:0;margin-right:0">
+      <img src="${e.image.data}" alt=""><figcaption>Attachment ${i + 1}: ${esc(e.title)}</figcaption></figure>`).join('')}
+  </article>`;
+}
+function reportDays() {
+  const r = state.report;
+  if (r.mode === 'day') return state.days.filter(d => d.date === r.date);
+  return state.days.filter(d => String(d.trainingWeek) === String(r.week));
+}
+function renderReportControls() {
+  const r = state.report;
+  $('#segDay').setAttribute('aria-pressed', String(r.mode === 'day'));
+  $('#segWeek').setAttribute('aria-pressed', String(r.mode === 'week'));
+  $('#rDayWrap').hidden = r.mode !== 'day';
+  $('#rWeekWrap').hidden = r.mode !== 'week';
+  const desc = state.days.slice().reverse();
+  $('#rDay').innerHTML = desc.map(d => `<option value="${d.date}">${esc(fmtLong(d.date))} (${esc(dayName(d.date))})</option>`).join('');
+  if (!desc.some(d => d.date === r.date)) r.date = desc[0]?.date || '';
+  $('#rDay').value = r.date;
+  const weeks = weekOptions($('#rWeek'), false);
+  if (!weeks.map(String).includes(String(r.week))) r.week = weeks.length ? String(weeks[weeks.length - 1]) : '';
+  $('#rWeek').value = r.week;
+  if (!r.signDate) r.signDate = todayISO();
+  $('#rSignDate').value = r.signDate;
+  renderReport();
+}
+function renderReport() {
+  const days = reportDays();
+  const stage = $('#reportStage');
+  const has = days.length > 0;
+  ['#copyBtn', '#printBtn', '#docxBtn'].forEach(s => { $(s).disabled = !has; });
+  if (!state.days.length) { stage.innerHTML = `<div class="empty">No records yet. <button class="linkbtn" data-goto="entry">Add an entry first</button></div>`; return; }
+  if (!has) { stage.innerHTML = `<div class="empty">${state.report.mode === 'week' ? 'No records with a Training Week yet. Set it in the form or in Settings.' : 'Pick a day.'}</div>`; return; }
+  stage.innerHTML = days.map(d => `<div class="page-frame">${pageHTML(d)}</div>` +
+    (attachmentsHTML(d) ? `<div class="page-frame">${attachmentsHTML(d)}</div>` : '')).join('');
+  fitPages();
+  $$('img', stage).forEach(img => { if (!img.complete) img.addEventListener('load', fitPages, { once: true }); });
+}
+// Skala halaman A4 supaya muat skrin phone (print tetap saiz penuh)
+function fitPages() {
+  const stage = $('#reportStage'); if (!stage || stage.offsetParent === null) return;
+  const avail = stage.clientWidth - 28;
+  $$('.page-frame', stage).forEach(fr => {
+    const pg = fr.firstElementChild;
+    pg.style.transform = 'none';
+    const w = pg.offsetWidth, h = pg.offsetHeight;
+    const s = Math.min(1, avail / w);
+    pg.style.transform = s < 1 ? `scale(${s})` : 'none';
+    fr.style.width = (w * s) + 'px'; fr.style.height = (h * s) + 'px';
+  });
+}
+window.addEventListener('resize', fitPages);
+window.addEventListener('beforeprint', () => $$('.page').forEach(p => { p.style.transform = 'none'; }));
+window.addEventListener('afterprint', fitPages);
+
+function openReportDay(date) { state.report.mode = 'day'; state.report.date = date; showTab('report'); }
+$('#segDay').addEventListener('click', () => { state.report.mode = 'day'; renderReportControls(); });
+$('#segWeek').addEventListener('click', () => { state.report.mode = 'week'; renderReportControls(); });
+$('#rDay').addEventListener('change', e => { state.report.date = e.target.value; renderReport(); });
+$('#rWeek').addEventListener('change', e => { state.report.week = e.target.value; renderReport(); });
+$('#rSignDate').addEventListener('change', e => { state.report.signDate = e.target.value; renderReport(); });
+const signDateISO = () => state.report.signDate || todayISO();
+$('#printBtn').addEventListener('click', () => window.print());
+
+// Copy teks: HTML (jadual kekal bila tampal ke Word) + teks biasa
+function copyPayload(days) {
+  const sans = "font-family:Arial,sans-serif;font-size:11pt;";
+  const serif = "font-family:'Times New Roman',serif;font-size:11pt;";
+  const td = 'vertical-align:top;border-left:1px solid #000;border-right:1px solid #000;padding:2px 4px 14px;';
+  const th = sans + 'font-weight:bold;text-align:center;border:1px solid #000;padding:3px;';
+  const html = days.map(d => `
+    <p style="${sans}"><b>Date</b>: <u>&nbsp;${esc(fmtLong(d.date))}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u> <b>Day</b>: <u>&nbsp;${esc(dayName(d.date))}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u> <b>Training Week</b>:<u>&nbsp;${d.trainingWeek ?? ''}&nbsp;</u><br>
+    <i>${esc(NOTE_TOP)}</i></p>
+    <table style="border-collapse:collapse;width:100%;${serif}border:1px solid #000">
+      <tr><th style="${th}width:13%">Time</th><th style="${th}width:43%">Entry</th><th style="${th}">Description / Remarks</th></tr>
+      ${d.entries.map(e => `<tr><td style="${td}">${esc(timeRange(e.timeFrom, e.timeTo))}</td><td style="${td}text-align:center">${esc(e.title)}</td><td style="${td}">${e.isBreak ? '' : esc(e.description).replace(/\n/g, '<br>')}</td></tr>`).join('')}
+    </table>
+    <p style="${sans}"><i>${esc(NOTE_BOTTOM)}</i></p>`).join('<br>');
+  const text = days.map(d => [
+    `Date: ${fmtLong(d.date)}\tDay: ${dayName(d.date)}\tTraining Week: ${d.trainingWeek ?? ''}`,
+    NOTE_TOP, '', 'Time\tEntry\tDescription / Remarks',
+    ...d.entries.map(e => `${timeRange(e.timeFrom, e.timeTo)}\t${e.title}\t${e.isBreak ? '' : e.description.replace(/\n/g, ' ')}`),
+    '', NOTE_BOTTOM].join('\n')).join('\n\n');
+  return { html, text };
+}
+$('#copyBtn').addEventListener('click', async () => {
+  const { html, text } = copyPayload(reportDays());
+  try {
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })]);
+    } else throw new Error('fallback');
+    toast('Text copied. Paste terus ke Word.');
+  } catch (e) {
+    // Fallback untuk browser lama
+    const div = document.createElement('div');
+    div.contentEditable = 'true'; div.style.cssText = 'position:fixed;left:-9999px;top:0'; div.innerHTML = html;
+    document.body.appendChild(div);
+    const range = document.createRange(); range.selectNodeContents(div);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    const ok = document.execCommand('copy');
+    sel.removeAllRanges(); div.remove();
+    toast(ok ? 'Text copied. Paste terus ke Word.' : 'This browser blocked copying. Use Download Word instead.');
+  }
+});
+
+/* =====================================================================
+   DOCX (dibina sendiri dalam browser, tiada library luar)
+   ===================================================================== */
+/*__DOCX_START__*/
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+// ZIP ringkas (tanpa mampatan) — cukup untuk fail .docx
+function makeZip(files) {
+  const enc = new TextEncoder();
+  const parts = []; const central = []; let offset = 0;
+  const d = new Date();
+  const dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  const dosDate = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  for (const f of files) {
+    const name = enc.encode(f.name);
+    const data = typeof f.data === 'string' ? enc.encode(f.data) : f.data;
+    const crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true); lh.setUint32(14, crc, true);
+    lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(new Uint8Array(lh.buffer), name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(10, 0, true); ch.setUint16(12, dosTime, true); ch.setUint16(14, dosDate, true); ch.setUint32(16, crc, true);
+    ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true);
+    ch.setUint16(30, 0, true); ch.setUint16(32, 0, true); ch.setUint16(34, 0, true); ch.setUint16(36, 0, true);
+    ch.setUint32(38, 0, true); ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    offset += 30 + name.length + data.length;
+  }
+  const cdSize = central.reduce((a, b) => a + b.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+  const all = [...parts, ...central, new Uint8Array(end.buffer)];
+  const out = new Uint8Array(all.reduce((a, b) => a + b.length, 0));
+  let p = 0; for (const a of all) { out.set(a, p); p += a.length; }
+  return out;
+}
+function b64ToBytes(b64) { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+const xesc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+
+/* days: rekod untuk report; opts: { signature, signDate, fmtLong, dayName, timeRange, noteTop, noteBottom } */
+function buildDocx(days, opts) {
+  const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const media = []; let ridN = 2; let picN = 1;
+  const ARIAL = '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Arial"/>';
+  const run = (text, o = {}) => {
+    // Susunan rPr ikut skema Word: rFonts, b, i, sz, u
+    const rpr = (o.sans ? ARIAL : '') + (o.b ? '<w:b/>' : '') + (o.i ? '<w:i/>' : '') +
+      (o.sz ? `<w:sz w:val="${o.sz}"/><w:szCs w:val="${o.sz}"/>` : '') + (o.u ? '<w:u w:val="single"/>' : '');
+    return String(text ?? '').split('\n').map((line, i) => (i ? '<w:r><w:br/></w:r>' : '') +
+      `<w:r>${rpr ? `<w:rPr>${rpr}</w:rPr>` : ''}<w:t xml:space="preserve">${xesc(line)}</w:t></w:r>`).join('');
+  };
+  const para = (inner, o = {}) => {
+    let ppr = o.keepNext ? '<w:keepNext/>' : '';   // susunan pPr ikut skema Word
+    if (o.border) ppr += '<w:pBdr><w:top w:val="single" w:sz="4" w:space="1" w:color="000000"/></w:pBdr>';
+    ppr += `<w:spacing w:before="${o.before || 0}" w:after="${o.after || 0}"/>`;
+    if (o.indRight || o.indLeft) ppr += `<w:ind w:left="${o.indLeft || 0}" w:right="${o.indRight || 0}"/>`;
+    if (o.jc) ppr += `<w:jc w:val="${o.jc}"/>`;
+    return `<w:p><w:pPr>${ppr}</w:pPr>${inner}</w:p>`;
+  };
+  const borders = '<w:tblBorders>' + ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']
+    .map(b => `<w:${b} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join('') + '</w:tblBorders>';
+  // Jadual logbook: bingkai luar + garis tegak sahaja (tiada garis melintang antara entry)
+  const logBorders = '<w:tblBorders>' + ['top', 'left', 'bottom', 'right', 'insideV']
+    .map(b => `<w:${b} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join('') + '<w:insideH w:val="nil"/></w:tblBorders>';
+  const cell = (w, inner, bottomLine) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${bottomLine ? '<w:tcBorders><w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/></w:tcBorders>' : ''}</w:tcPr>${inner}</w:tc>`;
+  const table = (widths, rowsXml, brd = borders) => `<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a, b) => a + b, 0)}" w:type="dxa"/>${brd}
+    <w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="40" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="60" w:type="dxa"/></w:tblCellMar></w:tblPr>
+    <w:tblGrid>${widths.map(w => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${rowsXml}</w:tbl>`;
+  const image = (img, maxWcm, maxHcm) => {
+    if (!img || !img.data) return '';
+    const comma = img.data.indexOf(',');
+    const head = img.data.slice(0, comma);
+    const ext = head.includes('image/png') ? 'png' : head.includes('image/jpeg') ? 'jpeg' : null;
+    if (!ext) return '';
+    const n = picN++; const rid = 'rId' + (ridN++);
+    media.push({ name: `word/media/image${n}.${ext}`, target: `media/image${n}.${ext}`, rid, bytes: b64ToBytes(img.data.slice(comma + 1)) });
+    let cx = (img.w || 400) * 9525, cy = (img.h || 300) * 9525;
+    const s = Math.min(1, (maxWcm * 360000) / cx, (maxHcm * 360000) / cy);
+    cx = Math.round(cx * s); cy = Math.round(cy * s);
+    return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${n}" name="Picture ${n}"/>
+      <wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>
+      <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+      <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${n}" name="image${n}.${ext}"/><pic:cNvPicPr/></pic:nvPicPr>
+      <pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+      <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>
+      </a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+  };
+
+  // A4, margin 15mm (851 twips). Lebar kandungan = 11906 - 2*851 = 10204
+  const NB = '\u00A0';
+  const fill = (v, len) => NB + v + NB.repeat(Math.max(1, len - String(v).length));
+  const W = [1330, 4430, 4444];               // Time 13%, Entry 43.4%, Description 43.6%
+  const LINE = 260, ROW_GAP = 440;            // anggaran tinggi satu baris & jarak antara entry (twips)
+  const BODY_AVAIL = 11000;                   // ruang badan jadual sebelum tandatangan (anggaran selamat)
+  const linesFor = (txt, chars) => String(txt || '').split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length / chars)), 0);
+  const signDate = opts.fmtLong(opts.signDate);
+  const body = days.map((d, idx) => {
+    let x = '';
+    if (idx > 0) x += '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+    // Header bergaris: Date / Day / Training Week
+    x += para(
+      run('Date', { sans: true, b: true }) + run(':' + NB, { sans: true }) + run(fill(opts.fmtLong(d.date), 26), { sans: true, u: true }) + run('   ', { sans: true }) +
+      run('Day', { sans: true, b: true }) + run(':' + NB, { sans: true }) + run(fill(opts.dayName(d.date), 26), { sans: true, u: true }) + run('   ', { sans: true }) +
+      run('Training Week', { sans: true, b: true }) + run(':', { sans: true }) + run(fill(d.trainingWeek ?? '', 3), { sans: true, u: true }),
+      { indLeft: 110 });
+    x += para(run(opts.noteTop, { sans: true, i: true }), { after: 120 });
+    const head = `<w:tr><w:trPr><w:tblHeader/></w:trPr>
+      ${cell(W[0], para(run('Time', { sans: true, b: true }), { jc: 'center', before: 40, after: 40 }), true)}
+      ${cell(W[1], para(run('Entry', { sans: true, b: true }), { jc: 'center', before: 40, after: 40 }), true)}
+      ${cell(W[2], para(run('Description / Remarks', { sans: true, b: true }), { jc: 'center', before: 40, after: 40 }), true)}</w:tr>`;
+    let used = 0;
+    const rows = d.entries.map(e => {
+      const desc = e.isBreak ? '' : e.description;
+      const lines = Math.max(linesFor(desc, 40), linesFor(e.title, 38), 1);
+      used += lines * LINE + ROW_GAP;
+      return `<w:tr><w:trPr><w:cantSplit/></w:trPr>
+      ${cell(W[0], para(run(opts.timeRange(e.timeFrom, e.timeTo)), { after: ROW_GAP }))}
+      ${cell(W[1], para(run(e.title), { jc: 'center', after: ROW_GAP }))}
+      ${cell(W[2], para(run(desc), { after: ROW_GAP }))}</w:tr>`;
+    }).join('');
+    // Baris kosong supaya jadual panjang sampai bawah muka surat (macam borang asal)
+    const filler = BODY_AVAIL - used;
+    const fillRow = filler > 300 ? `<w:tr><w:trPr><w:trHeight w:val="${Math.round(filler)}" w:hRule="atLeast"/></w:trPr>
+      ${cell(W[0], para(''))}${cell(W[1], para(''))}${cell(W[2], para(''))}</w:tr>` : '';
+    x += table(W, head + rows + fillRow, logBorders);
+    x += para(run(opts.noteBottom, { sans: true, i: true }), { before: 20 });
+    const sig = opts.signature ? image(opts.signature, 4.5, 1.8) : '';
+    x += para(sig, { before: sig ? 200 : 900, indLeft: 900, keepNext: true });
+    x += para(run('Student Signature', { sans: true, b: true }), { border: true, indLeft: 0, indRight: 6100, keepNext: true });
+    x += para(run(`Date: ${signDate}`, { sans: true, b: true }), { indLeft: 110 });
+    // Lampiran gambar: muka surat berasingan
+    const imgs = d.entries.filter(e => e.image && !e.isBreak);
+    if (imgs.length) {
+      x += '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+      x += para(run(`Attachments: ${opts.fmtLong(d.date)}`, { sans: true, b: true }), { after: 240 });
+      imgs.forEach((e, i) => {
+        const pic = image(e.image, 15, 10);
+        if (!pic) return;
+        x += para(pic, { keepNext: true });
+        x += para(run(`Attachment ${i + 1}: ${e.title}`, { i: true }), { before: 60, after: 360 });
+      });
+    }
+    return x;
+  }).join('');
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="${W_NS}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+<w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="851" w:right="851" w:bottom="851" w:left="851" w:header="425" w:footer="425" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="${W_NS}"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="en-GB"/></w:rPr></w:rPrDefault>
+<w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>
+<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>`;
+  const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+${media.map(m => `<Relationship Id="${m.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${m.target}"/>`).join('\n')}
+</Relationships>`;
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Default Extension="png" ContentType="image/png"/>
+<Default Extension="jpeg" ContentType="image/jpeg"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`;
+  const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+  return makeZip([
+    { name: '[Content_Types].xml', data: contentTypes },
+    { name: '_rels/.rels', data: rootRels },
+    { name: 'word/document.xml', data: documentXml },
+    { name: 'word/styles.xml', data: stylesXml },
+    { name: 'word/_rels/document.xml.rels', data: docRels },
+    ...media.map(m => ({ name: m.name, data: m.bytes })),
+  ]);
+}
+/*__DOCX_END__*/
+
+function download(bytesOrBlob, filename, type) {
+  const blob = bytesOrBlob instanceof Blob ? bytesOrBlob : new Blob([bytesOrBlob], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+$('#docxBtn').addEventListener('click', () => {
+  const days = reportDays(); if (!days.length) return;
+  try {
+    const bytes = buildDocx(days, {
+      signature: state.settings.signature, signDate: signDateISO(), fmtLong, dayName, timeRange, noteTop: NOTE_TOP, noteBottom: NOTE_BOTTOM,
+    });
+    const name = state.report.mode === 'day' ? `Logbook_${days[0].date}.docx` : `Logbook_Week${state.report.week}.docx`;
+    download(bytes, name, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    toast('Word file downloaded');
+  } catch (e) { toast("Couldn't create the Word file."); console.error(e); }
+});
+
+/* =====================================================================
+   TETAPAN
+   ===================================================================== */
+async function saveSettings(msg) {
+  await storage.saveSettings(state.settings);
+  if (msg) toast(msg);
+}
+function renderSettings() {
+  const s = state.settings;
+  $('#sStart').value = s.trainingStartDate || '';
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  $('#sDays').innerHTML = order.map(d => `<label><input type="checkbox" value="${d}" ${s.workingDays.includes(d) ? 'checked' : ''}>${DAYS_SHORT[d]}</label>`).join('');
+  $('#sigSavedWrap').hidden = !s.signature;
+  if (s.signature) $('#sigSaved').src = s.signature.data;
+  $('#lastBackup').textContent = s.lastBackupAt
+    ? `Last backup: ${new Date(s.lastBackupAt).toLocaleString('en-GB')}` : 'No backup exported yet.';
+  $('#storeInfo').textContent = storage.mode === 'idb'
+    ? `${state.days.length} records saved in this browser (IndexedDB). Data doesn't sync to other devices, so guna Export/Import untuk pindah.`
+    : "Browser storage isn't available. Data is kept in memory only and will be lost when the tab closes.";
+  setupCanvas();
+}
+$('#sStart').addEventListener('change', async e => {
+  state.settings.trainingStartDate = e.target.value;
+  await saveSettings('Training start date saved');
+  if (!state.form.weekManual) state.form.week = autoWeek(state.form.date) ?? '';
+  renderFormMeta();
+});
+$('#sDays').addEventListener('change', async () => {
+  const days = $$('#sDays input:checked').map(i => Number(i.value));
+  if (!days.length) { toast('Pick at least one working day.'); renderSettings(); return; }
+  state.settings.workingDays = days;
+  await saveSettings('Working days saved');
+});
+$('#recalcWeeks').addEventListener('click', async () => {
+  if (!state.settings.trainingStartDate) { toast('Set your training start date first.'); return; }
+  if (!confirm('Recalculate Training Week for all records from your start date? Weeks you edited manually will be overwritten.')) return;
+  for (const d of state.days) { d.trainingWeek = autoWeek(d.date); await storage.save(d); }
+  state.days = await storage.getAll();
+  toast(`${state.days.length} records updated`);
+});
+
+// ----- Tandatangan -----
+let sigCtx = null, sigDrawn = false;
+function setupCanvas() {
+  const c = $('#sigCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = c.getBoundingClientRect();
+  if (!rect.width) return;
+  c.width = Math.round(rect.width * dpr); c.height = Math.round(rect.height * dpr);
+  sigCtx = c.getContext('2d');
+  sigCtx.scale(dpr, dpr);
+  sigCtx.lineWidth = 2.2; sigCtx.lineCap = 'round'; sigCtx.lineJoin = 'round'; sigCtx.strokeStyle = '#1C2E8C';
+  sigDrawn = false;
+}
+(() => {
+  const c = $('#sigCanvas'); let drawing = false, last = null;
+  const pos = e => { const r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  c.addEventListener('pointerdown', e => {
+    if (!sigCtx) setupCanvas();
+    drawing = true; last = pos(e); c.setPointerCapture(e.pointerId);
+    sigCtx.beginPath(); sigCtx.arc(last.x, last.y, 1.1, 0, Math.PI * 2); sigCtx.fillStyle = '#1C2E8C'; sigCtx.fill();
+    sigDrawn = true;
+  });
+  c.addEventListener('pointermove', e => {
+    if (!drawing) return;
+    const p = pos(e);
+    sigCtx.beginPath(); sigCtx.moveTo(last.x, last.y); sigCtx.lineTo(p.x, p.y); sigCtx.stroke();
+    last = p;
+  });
+  const stop = () => { drawing = false; };
+  c.addEventListener('pointerup', stop); c.addEventListener('pointercancel', stop);
+})();
+$('#sigClear').addEventListener('click', () => {
+  const c = $('#sigCanvas'); if (sigCtx) { sigCtx.save(); sigCtx.setTransform(1, 0, 0, 1, 0, 0); sigCtx.clearRect(0, 0, c.width, c.height); sigCtx.restore(); }
+  sigDrawn = false;
+});
+$('#sigSave').addEventListener('click', async () => {
+  if (!sigDrawn) { toast('Draw your signature in the box first.'); return; }
+  const c = $('#sigCanvas'); const ctx = c.getContext('2d');
+  const { data, width, height } = ctx.getImageData(0, 0, c.width, c.height);
+  // Potong ruang kosong sekeliling tandatangan
+  let minX = width, minY = height, maxX = -1, maxY = -1;
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    if (data[(y * width + x) * 4 + 3] > 10) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  }
+  if (maxX < 0) { toast('Draw your signature in the box first.'); return; }
+  const padPx = 6; minX = Math.max(0, minX - padPx); minY = Math.max(0, minY - padPx);
+  maxX = Math.min(width - 1, maxX + padPx); maxY = Math.min(height - 1, maxY + padPx);
+  const w = maxX - minX + 1, h = maxY - minY + 1;
+  const out = document.createElement('canvas'); out.width = w; out.height = h;
+  out.getContext('2d').drawImage(c, minX, minY, w, h, 0, 0, w, h);
+  const dpr = window.devicePixelRatio || 1;
+  state.settings.signature = { data: out.toDataURL('image/png'), w: Math.round(w / dpr), h: Math.round(h / dpr) };
+  await saveSettings('Signature saved. It will be used in all reports.');
+  renderSettings();
+});
+
+// ----- Backup -----
+async function exportBackup() {
+  const data = await storage.exportAll();
+  download(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), `logbook-backup-${todayISO()}.json`);
+  state.settings.lastBackupAt = new Date().toISOString();
+  await saveSettings();
+  renderNags();
+  if (!$('#view-settings').hidden) renderSettings();
+  toast('Backup downloaded. Simpan dalam Google Drive supaya selamat.');
+}
+$('#importFile').addEventListener('change', async e => {
+  const file = e.target.files[0]; e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const count = Array.isArray(data.days) ? data.days.length : 0;
+    if (!confirm(`Import ${count} records from this file? Records with the same date will be replaced.`)) return;
+    const n = await storage.importAll(data);
+    state.days = await storage.getAll();
+    state.settings = await storage.getSettings();
+    renderSettings(); renderFormAll();
+    toast(`${n} records imported`);
+  } catch (err) { toast(err instanceof SyntaxError ? "This file isn't valid JSON." : err.message); }
+});
+
+/* =====================================================================
+   MULA
+   ===================================================================== */
+(async function init() {
+  await storage.init();
+  state.settings = await storage.getSettings();
+  state.days = await storage.getAll();
+  const draft = loadDraft();
+  if (draft && draft.form && Array.isArray(draft.form.entries) && !formIsBlank(draft.form)) {
+    state.form = draft.form;
+    state.editingDate = draft.editingDate && state.days.some(d => d.date === draft.editingDate) ? draft.editingDate : null;
+    toast('Draft restored');
+  } else {
+    state.form = newForm(suggestStartDate());
+  }
+  $('#storeNote').textContent = storage.mode === 'idb' ? 'Saved in this browser' : 'Temporary storage';
+  renderFormAll();
+})();
+</script>
+</body>
+</html>
